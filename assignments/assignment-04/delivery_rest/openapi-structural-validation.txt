@@ -1,0 +1,4 @@
+OpenAPI YAML parse: PASS
+Local structural checks: PASS (5 operations, 11 schemas, all local schema refs resolved)
+Errors: 0
+Note: run https://editor.swagger.io/ or openapi-spec-validator for the official OpenAPI specification validation required by the assignment.

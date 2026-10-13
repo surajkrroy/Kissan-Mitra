@@ -1,0 +1,229 @@
+openapi: 3.0.3
+info:
+  title: Kissan Mitra Delivery API
+  version: 1.0.0
+  description: >-
+    Delivery owns delivery records and tracking events. Orders remains the owner
+    of order status and exposes a delivery-eligibility API consumed by this service.
+servers:
+  - url: http://localhost:8102
+    description: Local development
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      summary: Check service health
+      responses:
+        '200':
+          description: Service is running
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/HealthResponse'}
+        '503':
+          description: Service health check unavailable
+          content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
+  /deliveries:
+    post:
+      operationId: createDelivery
+      summary: Create a delivery for an eligible order
+      description: Requires an Idempotency-Key header. Calls Orders service before creating a new record.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: {$ref: '#/components/schemas/IdempotencyKey'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateDeliveryRequest'}
+      responses:
+        '201':
+          description: Delivery created, or original result replayed for an equivalent idempotent request
+          headers:
+            Location:
+              description: URI of the created delivery
+              schema: {type: string}
+            Idempotency-Replayed:
+              description: Present and true when a prior result was replayed
+              schema: {type: string}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Delivery'}
+        '400':
+          description: Malformed body or missing idempotency key
+          content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
+        '404':
+          description: Order not found
+          content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
+        '409':
+          description: Duplicate delivery or idempotency conflict
+          content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
+        '422':
+          description: Order exists but is not eligible for delivery
+          content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
+        '502':
+          description: Orders service returned an invalid or unusable response
+          content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
+        '503':
+          description: Orders service unavailable
+          content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
+    get:
+      operationId: listDeliveries
+      summary: List deliveries with optional filters
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema: {$ref: '#/components/schemas/DeliveryStatus'}
+        - in: query
+          name: order_id
+          required: false
+          schema: {$ref: '#/components/schemas/OrderId'}
+      responses:
+        '200':
+          description: Filtered list of deliveries
+          content: {application/json: {schema: {$ref: '#/components/schemas/DeliveryList'}}}
+        '400':
+          description: Invalid filter
+          content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
+  /deliveries/{delivery_id}:
+    get:
+      operationId: getDelivery
+      summary: Retrieve one delivery
+      parameters:
+        - in: path
+          name: delivery_id
+          required: true
+          schema: {$ref: '#/components/schemas/DeliveryId'}
+      responses:
+        '200':
+          description: Delivery found
+          content: {application/json: {schema: {$ref: '#/components/schemas/Delivery'}}}
+        '404':
+          description: Delivery not found
+          content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
+  /deliveries/{delivery_id}/tracking-events:
+    post:
+      operationId: addTrackingEvent
+      summary: Add a tracking event and optionally advance delivery status
+      parameters:
+        - in: path
+          name: delivery_id
+          required: true
+          schema: {$ref: '#/components/schemas/DeliveryId'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateTrackingEventRequest'}
+      responses:
+        '201':
+          description: Tracking event created
+          headers:
+            Location:
+              description: URI of the created tracking event
+              schema: {type: string}
+          content: {application/json: {schema: {$ref: '#/components/schemas/TrackingEvent'}}}
+        '400':
+          description: Malformed tracking event
+          content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
+        '404':
+          description: Delivery not found
+          content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
+        '409':
+          description: Delivery is terminal and tracking cannot change
+          content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}
+components:
+  schemas:
+    IdempotencyKey:
+      type: string
+      minLength: 1
+      maxLength: 150
+      description: Unique client-generated key reused for an equivalent retry.
+    DeliveryId:
+      type: string
+      minLength: 1
+    OrderId:
+      type: string
+      minLength: 1
+    DeliveryStatus:
+      type: string
+      enum: [PENDING, ASSIGNED, IN_TRANSIT, DELIVERED, FAILED]
+    CreateDeliveryRequest:
+      type: object
+      required: [orderId, deliveryAddress]
+      additionalProperties: false
+      properties:
+        orderId: {$ref: '#/components/schemas/OrderId'}
+        deliveryAddress:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        packageDetails:
+          type: string
+          nullable: true
+          maxLength: 2000
+        partnerReference:
+          type: string
+          nullable: true
+          maxLength: 150
+    TrackingEvent:
+      type: object
+      required: [eventId, description, eventTime]
+      properties:
+        eventId: {$ref: '#/components/schemas/DeliveryId'}
+        location:
+          type: string
+          nullable: true
+        description: {type: string}
+        eventTime: {type: string, format: date-time}
+    CreateTrackingEventRequest:
+      type: object
+      required: [description]
+      additionalProperties: false
+      properties:
+        location: {type: string, nullable: true, maxLength: 255}
+        description: {type: string, minLength: 1, maxLength: 1000}
+        eventTime: {type: string, format: date-time}
+        status:
+          type: string
+          enum: [ASSIGNED, IN_TRANSIT, DELIVERED, FAILED]
+    Delivery:
+      type: object
+      required: [deliveryId, orderId, deliveryAddress, status, createdAt, updatedAt, trackingEvents]
+      properties:
+        deliveryId: {$ref: '#/components/schemas/DeliveryId'}
+        orderId: {$ref: '#/components/schemas/OrderId'}
+        deliveryAddress: {type: string}
+        packageDetails: {type: string, nullable: true}
+        status: {$ref: '#/components/schemas/DeliveryStatus'}
+        trackingNumber: {type: string, nullable: true}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        trackingEvents:
+          type: array
+          items: {$ref: '#/components/schemas/TrackingEvent'}
+    DeliveryList:
+      type: object
+      required: [items, count]
+      properties:
+        items:
+          type: array
+          items: {$ref: '#/components/schemas/Delivery'}
+        count: {type: integer, minimum: 0}
+    HealthResponse:
+      type: object
+      required: [status, service]
+      properties:
+        status: {type: string, enum: [ok]}
+        service: {type: string, enum: [delivery]}
+    Problem:
+      type: object
+      required: [type, title, status, detail]
+      properties:
+        type: {type: string, format: uri}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        code: {type: string}

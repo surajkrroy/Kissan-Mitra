@@ -1,0 +1,56 @@
+# Actual local curl transcript; all requests were executed with curl -i.
+# Mock Orders service: 127.0.0.1:8101; Delivery API: 127.0.0.1:8102
+
+$ curl -i -X POST http://127.0.0.1:8102/deliveries -H 'Content-Type: application/json' -H 'Idempotency-Key: KM-ORDER-1042-DELIVERY' -d '{"orderId":"1042","deliveryAddress":"Village Rampur, District Example, India","packageDetails":"One farm-produce order"}'
+HTTP/1.1 201 Created
+date: Tue, 13 Oct 2026 20:01:59 GMT
+server: uvicorn
+location: /deliveries/del_f8e52472265c41aba879485f7da951ea
+content-length: 358
+content-type: application/json
+
+{"deliveryId":"del_f8e52472265c41aba879485f7da951ea","orderId":"1042","deliveryAddress":"Village Rampur, District Example, India","packageDetails":"One farm-produce order","status":"PENDING","trackingNumber":"KM-TRK-del_f8e52472265c41aba879485f7da951ea","createdAt":"2026-10-13T20:02:00.026237Z","updatedAt":"2026-10-13T20:02:00.026272Z","trackingEvents":[]}
+
+$ curl -i -X POST http://127.0.0.1:8102/deliveries -H 'Content-Type: application/json' -H 'Idempotency-Key: KM-ORDER-1042-DELIVERY' -d '{"orderId":"1042","deliveryAddress":"Village Rampur, District Example, India","packageDetails":"One farm-produce order"}' (repeat)
+HTTP/1.1 201 Created
+date: Tue, 13 Oct 2026 20:02:00 GMT
+server: uvicorn
+location: /deliveries/del_f8e52472265c41aba879485f7da951ea
+idempotency-replayed: true
+content-length: 358
+content-type: application/json
+
+{"deliveryId":"del_f8e52472265c41aba879485f7da951ea","orderId":"1042","deliveryAddress":"Village Rampur, District Example, India","packageDetails":"One farm-produce order","status":"PENDING","trackingNumber":"KM-TRK-del_f8e52472265c41aba879485f7da951ea","createdAt":"2026-10-13T20:02:00.026237Z","updatedAt":"2026-10-13T20:02:00.026272Z","trackingEvents":[]}
+$ curl -i -X POST http://127.0.0.1:8102/deliveries -H 'Content-Type: application/json' -H 'Idempotency-Key: bad-json' -d '{bad json'
+HTTP/1.1 400 Bad Request
+date: Tue, 13 Oct 2026 20:02:00 GMT
+server: uvicorn
+content-length: 144
+content-type: application/json
+
+{"type":"https://httpstatuses.com/400","title":"Bad Request","status":400,"detail":"Request body must be a JSON object.","code":"INVALID_INPUT"}
+$ curl -i http://127.0.0.1:8102/deliveries/no-such-delivery
+HTTP/1.1 404 Not Found
+date: Tue, 13 Oct 2026 20:02:00 GMT
+server: uvicorn
+content-length: 152
+content-type: application/json
+
+{"type":"https://httpstatuses.com/404","title":"Not Found","status":404,"detail":"Delivery no-such-delivery was not found.","code":"DELIVERY_NOT_FOUND"}
+$ curl -i -X POST http://127.0.0.1:8102/deliveries/del_f8e52472265c41aba879485f7da951ea/tracking-events -H 'Content-Type: application/json' -d '{"description":"Delivered to buyer","status":"DELIVERED"}'
+HTTP/1.1 201 Created
+date: Tue, 13 Oct 2026 20:02:00 GMT
+server: uvicorn
+location: /deliveries/del_f8e52472265c41aba879485f7da951ea/tracking-events/evt_16b7e7867ff6463c80937efdb5d3801b
+content-length: 143
+content-type: application/json
+
+{"eventId":"evt_16b7e7867ff6463c80937efdb5d3801b","location":null,"description":"Delivered to buyer","eventTime":"2026-10-13T20:02:00.982739Z"}
+$ curl -i -X POST http://127.0.0.1:8102/deliveries/del_f8e52472265c41aba879485f7da951ea/tracking-events -H 'Content-Type: application/json' -d '{"description":"A late duplicate update"}'
+HTTP/1.1 409 Conflict
+date: Tue, 13 Oct 2026 20:02:00 GMT
+server: uvicorn
+content-length: 177
+content-type: application/json
+
+{"type":"https://httpstatuses.com/409","title":"Conflict","status":409,"detail":"Tracking cannot be changed after delivery status is DELIVERED.","code":"INVALID_DELIVERY_STATE"}
