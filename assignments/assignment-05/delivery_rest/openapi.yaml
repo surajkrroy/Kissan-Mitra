@@ -1,0 +1,272 @@
+openapi: 3.0.3
+info:
+  title: CampusEats Delivery API
+  version: 1.1.0
+  description: >-
+    Assignment 5: HTTP methods, message headers, conditional requests, safe retries,
+    and Delivery-owned records. Orders owns order workflow.
+servers:
+  - url: http://localhost:8102
+    description: Local development only; production must use HTTPS.
+security:
+  - BearerAuth: []
+paths:
+  /health:
+    get:
+      operationId: healthCheck
+      security: []
+      responses:
+        '200': {description: Service is healthy, content: {application/json: {schema: {$ref: '#/components/schemas/Health'}}}}
+  /deliveries:
+    options:
+      operationId: optionsDeliveries
+      security: []
+      responses:
+        '204':
+          description: Supported collection methods
+          headers:
+            Allow: {schema: {type: string}, description: Supported methods}
+            Access-Control-Allow-Origin: {schema: {type: string}}
+            Access-Control-Allow-Methods: {schema: {type: string}}
+    post:
+      operationId: createDelivery
+      summary: Create a delivery for an eligible order; retry with the same Idempotency-Key.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: {type: string, minLength: 1, maxLength: 150}
+        - {$ref: '#/components/parameters/Authorization'}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/CreateDelivery'}}}
+      responses:
+        '201':
+          description: Created or original result replayed
+          headers:
+            Location: {schema: {type: string}, description: URI of created delivery}
+            Idempotency-Replayed: {schema: {type: string}}
+            Content-Type: {schema: {type: string}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/Delivery'}}}
+        '400': {$ref: '#/components/responses/Problem400'}
+        '401': {$ref: '#/components/responses/Problem401'}
+        '404': {$ref: '#/components/responses/Problem404'}
+        '406': {$ref: '#/components/responses/Problem406'}
+        '409': {$ref: '#/components/responses/Problem409'}
+        '422': {$ref: '#/components/responses/Problem422'}
+        '429': {$ref: '#/components/responses/Problem429'}
+        '503': {$ref: '#/components/responses/Problem503'}
+    get:
+      operationId: listDeliveries
+      summary: Pure read; filter, sort and paginate using query parameters.
+      parameters:
+        - {$ref: '#/components/parameters/Authorization'}
+        - {in: query, name: status, schema: {$ref: '#/components/schemas/DeliveryStatus'}}
+        - {in: query, name: order_id, schema: {type: string}}
+        - {in: query, name: sort, schema: {type: string, enum: [createdAt, updatedAt, status, orderId], default: createdAt}}
+        - {in: query, name: order, schema: {type: string, enum: [asc, desc], default: asc}}
+        - {in: query, name: offset, schema: {type: integer, minimum: 0, default: 0}}
+        - {in: query, name: limit, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+      responses:
+        '200': {description: Filtered/paginated list, content: {application/json: {schema: {$ref: '#/components/schemas/DeliveryList'}}}}
+        '400': {$ref: '#/components/responses/Problem400'}
+        '401': {$ref: '#/components/responses/Problem401'}
+        '406': {$ref: '#/components/responses/Problem406'}
+        '429': {$ref: '#/components/responses/Problem429'}
+  /deliveries/{delivery_id}:
+    parameters:
+      - {in: path, name: delivery_id, required: true, schema: {type: string}}
+    get:
+      operationId: getDelivery
+      summary: Read one delivery; supports conditional GET.
+      parameters:
+        - {$ref: '#/components/parameters/Authorization'}
+        - {in: header, name: If-None-Match, required: false, schema: {type: string}}
+      responses:
+        '200':
+          description: Current delivery representation
+          headers:
+            ETag: {schema: {type: string}}
+            Cache-Control: {schema: {type: string}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/Delivery'}}}
+        '304': {description: ETag still matches; no response body}
+        '401': {$ref: '#/components/responses/Problem401'}
+        '404': {$ref: '#/components/responses/Problem404'}
+        '406': {$ref: '#/components/responses/Problem406'}
+        '429': {$ref: '#/components/responses/Problem429'}
+    put:
+      operationId: replaceDelivery
+      summary: Replace editable delivery fields only when If-Match matches the current ETag.
+      parameters:
+        - {$ref: '#/components/parameters/Authorization'}
+        - {in: header, name: If-Match, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/ReplaceDelivery'}}}
+      responses:
+        '200':
+          description: Updated delivery
+          headers: {ETag: {schema: {type: string}}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/Delivery'}}}
+        '400': {$ref: '#/components/responses/Problem400'}
+        '401': {$ref: '#/components/responses/Problem401'}
+        '404': {$ref: '#/components/responses/Problem404'}
+        '406': {$ref: '#/components/responses/Problem406'}
+        '409': {$ref: '#/components/responses/Problem409'}
+        '412': {$ref: '#/components/responses/Problem412'}
+        '429': {$ref: '#/components/responses/Problem429'}
+    patch:
+      operationId: patchDelivery
+      summary: Partially modify editable delivery fields using If-Match.
+      parameters:
+        - {$ref: '#/components/parameters/Authorization'}
+        - {in: header, name: If-Match, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/PatchDelivery'}}}
+      responses:
+        '200':
+          description: Partially updated delivery
+          headers: {ETag: {schema: {type: string}}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/Delivery'}}}
+        '400': {$ref: '#/components/responses/Problem400'}
+        '401': {$ref: '#/components/responses/Problem401'}
+        '404': {$ref: '#/components/responses/Problem404'}
+        '406': {$ref: '#/components/responses/Problem406'}
+        '409': {$ref: '#/components/responses/Problem409'}
+        '412': {$ref: '#/components/responses/Problem412'}
+        '429': {$ref: '#/components/responses/Problem429'}
+    delete:
+      operationId: deleteDelivery
+      summary: Delete a non-terminal delivery; terminal records are retained.
+      parameters:
+        - {$ref: '#/components/parameters/Authorization'}
+      responses:
+        '204': {description: Delivery deleted; no body}
+        '401': {$ref: '#/components/responses/Problem401'}
+        '404': {$ref: '#/components/responses/Problem404'}
+        '409': {$ref: '#/components/responses/Problem409'}
+        '429': {$ref: '#/components/responses/Problem429'}
+    options:
+      operationId: optionsDelivery
+      security: []
+      responses:
+        '204': {description: Allow header lists supported methods}
+  /deliveries/{delivery_id}/tracking-events:
+    parameters:
+      - {in: path, name: delivery_id, required: true, schema: {type: string}}
+    post:
+      operationId: addTrackingEvent
+      summary: Create a tracking event and optionally advance Delivery-owned status.
+      parameters:
+        - {$ref: '#/components/parameters/Authorization'}
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/CreateTrackingEvent'}}}
+      responses:
+        '201':
+          description: Tracking event created
+          headers: {Location: {schema: {type: string}}}
+          content: {application/json: {schema: {$ref: '#/components/schemas/TrackingEvent'}}}
+        '400': {$ref: '#/components/responses/Problem400'}
+        '401': {$ref: '#/components/responses/Problem401'}
+        '404': {$ref: '#/components/responses/Problem404'}
+        '406': {$ref: '#/components/responses/Problem406'}
+        '409': {$ref: '#/components/responses/Problem409'}
+        '422': {$ref: '#/components/responses/Problem422'}
+        '429': {$ref: '#/components/responses/Problem429'}
+components:
+  securitySchemes:
+    BearerAuth: {type: http, scheme: bearer, bearerFormat: opaque-demo-token}
+  parameters:
+    Authorization:
+      in: header
+      name: Authorization
+      required: true
+      schema: {type: string, pattern: '^Bearer .+$'}
+  responses:
+    Problem400: {description: Invalid or malformed input, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+    Problem401: {description: Missing/empty Bearer token, headers: {WWW-Authenticate: {schema: {type: string}}}, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+    Problem404: {description: Resource not found, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+    Problem406: {description: Unsupported Accept media type, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+    Problem409: {description: State or idempotency conflict, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+    Problem412: {description: If-Match precondition failed, headers: {ETag: {schema: {type: string}}}, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+    Problem422: {description: Domain rule refusal, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+    Problem429: {description: Per-client rate limit exceeded, headers: {Retry-After: {schema: {type: integer}}, X-RateLimit-Limit: {schema: {type: integer}}, X-RateLimit-Remaining: {schema: {type: integer}}}, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+    Problem503: {description: Dependency unavailable, content: {application/json: {schema: {$ref: '#/components/schemas/Problem'}}}}
+  schemas:
+    DeliveryStatus: {type: string, enum: [PENDING, ASSIGNED, IN_TRANSIT, DELIVERED, FAILED]}
+    CreateDelivery:
+      type: object
+      required: [orderId, deliveryAddress]
+      additionalProperties: false
+      properties:
+        orderId: {type: string, minLength: 1}
+        deliveryAddress: {type: string, minLength: 1, maxLength: 1000}
+        packageDetails: {type: string, nullable: true, maxLength: 2000}
+        partnerReference: {type: string, nullable: true, maxLength: 150}
+    ReplaceDelivery:
+      type: object
+      required: [deliveryAddress]
+      additionalProperties: false
+      properties:
+        deliveryAddress: {type: string, minLength: 1, maxLength: 1000}
+        packageDetails: {type: string, nullable: true, maxLength: 2000}
+    PatchDelivery:
+      type: object
+      minProperties: 1
+      additionalProperties: false
+      properties:
+        deliveryAddress: {type: string, minLength: 1, maxLength: 1000}
+        packageDetails: {type: string, nullable: true, maxLength: 2000}
+    CreateTrackingEvent:
+      type: object
+      required: [description]
+      additionalProperties: false
+      properties:
+        description: {type: string, minLength: 1, maxLength: 1000}
+        location: {type: string, nullable: true, maxLength: 255}
+        eventTime: {type: string, format: date-time}
+        status: {type: string, enum: [ASSIGNED, IN_TRANSIT, DELIVERED, FAILED]}
+    TrackingEvent:
+      type: object
+      required: [eventId, description, eventTime]
+      properties:
+        eventId: {type: string}
+        location: {type: string, nullable: true}
+        description: {type: string}
+        eventTime: {type: string, format: date-time}
+    Delivery:
+      type: object
+      required: [deliveryId, orderId, deliveryAddress, status, createdAt, updatedAt, trackingEvents]
+      properties:
+        deliveryId: {type: string}
+        orderId: {type: string}
+        deliveryAddress: {type: string}
+        packageDetails: {type: string, nullable: true}
+        status: {$ref: '#/components/schemas/DeliveryStatus'}
+        trackingNumber: {type: string, nullable: true}
+        createdAt: {type: string, format: date-time}
+        updatedAt: {type: string, format: date-time}
+        trackingEvents: {type: array, items: {$ref: '#/components/schemas/TrackingEvent'}}
+    DeliveryList:
+      type: object
+      required: [items, count, total, offset, limit, sort, order]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/Delivery'}}
+        count: {type: integer}
+        total: {type: integer}
+        offset: {type: integer}
+        limit: {type: integer}
+        sort: {type: string}
+        order: {type: string}
+    Health: {type: object, required: [status, service], properties: {status: {type: string}, service: {type: string}}}
+    Problem:
+      type: object
+      required: [type, title, status, detail]
+      properties:
+        type: {type: string, format: uri}
+        title: {type: string}
+        status: {type: integer}
+        detail: {type: string}
+        code: {type: string}

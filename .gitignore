@@ -5,3 +5,6 @@ dist/
 !.env.example
 *.log
 team-backend/
+
+__pycache__/
+*.py[cod]

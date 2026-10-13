@@ -1,0 +1,353 @@
+Assignment 5 curl -v transcript captured against local Delivery API and mock Orders service.
+
+===== Create delivery: expect 201 and Location =====
+Note: Unnecessary use of -X or --request, POST is already inferred.
+* Uses proxy env variable no_proxy == 'localhost,127.0.0.1'
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 127.0.0.1:8102...
+* Connected to 127.0.0.1 (127.0.0.1) port 8102
+* using HTTP/1.x
+> POST /deliveries HTTP/1.1
+> Host: 127.0.0.1:8102
+> User-Agent: curl/8.10.1
+> Authorization: Bearer demo-token
+> Accept: application/json
+> Content-Type: application/json
+> Idempotency-Key: assignment5-order-1042
+> Content-Length: 92
+> 
+} [92 bytes data]
+* upload completely sent off: 92 bytes
+< HTTP/1.1 201 Created
+< date: Tue, 13 Oct 2026 20:40:09 GMT
+< server: uvicorn
+< location: /deliveries/del_8f33d4c47388464193d2122fd67da9d0
+< content-length: 330
+< content-type: application/json
+< x-ratelimit-limit: 120
+< x-ratelimit-remaining: 119
+< x-content-type-options: nosniff
+< strict-transport-security: max-age=31536000; includeSubDomains
+< cache-control: no-store
+< access-control-allow-origin: *
+< vary: Origin, Accept, Accept-Encoding
+< 
+{ [330 bytes data]
+
+100   422  100   330  100    92  37731  10519 --:--:-- --:--:-- --:--:-- 52750
+* Connection #0 to host 127.0.0.1 left intact
+HTTP/1.1 201 Created
+date: Tue, 13 Oct 2026 20:40:09 GMT
+server: uvicorn
+location: /deliveries/del_8f33d4c47388464193d2122fd67da9d0
+content-length: 330
+content-type: application/json
+x-ratelimit-limit: 120
+x-ratelimit-remaining: 119
+x-content-type-options: nosniff
+strict-transport-security: max-age=31536000; includeSubDomains
+cache-control: no-store
+access-control-allow-origin: *
+vary: Origin, Accept, Accept-Encoding
+
+{"deliveryId":"del_8f33d4c47388464193d2122fd67da9d0","orderId":"1042","deliveryAddress":"Village Rampur, India","packageDetails":"Farm produce","status":"PENDING","trackingNumber":"KM-TRK-del_8f33d4c47388464193d2122fd67da9d0","createdAt":"2026-10-13T20:40:09.873772Z","updatedAt":"2026-10-13T20:40:09.873790Z","trackingEvents":[]}
+
+===== Same create repeated with same Idempotency-Key =====
+Note: Unnecessary use of -X or --request, POST is already inferred.
+* Uses proxy env variable no_proxy == 'localhost,127.0.0.1'
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 127.0.0.1:8102...
+* Connected to 127.0.0.1 (127.0.0.1) port 8102
+* using HTTP/1.x
+> POST /deliveries HTTP/1.1
+> Host: 127.0.0.1:8102
+> User-Agent: curl/8.10.1
+> Authorization: Bearer demo-token
+> Accept: application/json
+> Content-Type: application/json
+> Idempotency-Key: assignment5-order-1042
+> Content-Length: 92
+> 
+} [92 bytes data]
+* upload completely sent off: 92 bytes
+< HTTP/1.1 201 Created
+< date: Tue, 13 Oct 2026 20:40:09 GMT
+< server: uvicorn
+< location: /deliveries/del_8f33d4c47388464193d2122fd67da9d0
+< idempotency-replayed: true
+< content-length: 330
+< content-type: application/json
+< x-ratelimit-limit: 120
+< x-ratelimit-remaining: 117
+< x-content-type-options: nosniff
+< strict-transport-security: max-age=31536000; includeSubDomains
+< cache-control: no-store
+< access-control-allow-origin: *
+< vary: Origin, Accept, Accept-Encoding
+< 
+{ [330 bytes data]
+
+100   422  100   330  100    92   360k   100k --:--:-- --:--:-- --:--:--  412k
+* Connection #0 to host 127.0.0.1 left intact
+HTTP/1.1 201 Created
+date: Tue, 13 Oct 2026 20:40:09 GMT
+server: uvicorn
+location: /deliveries/del_8f33d4c47388464193d2122fd67da9d0
+idempotency-replayed: true
+content-length: 330
+content-type: application/json
+x-ratelimit-limit: 120
+x-ratelimit-remaining: 117
+x-content-type-options: nosniff
+strict-transport-security: max-age=31536000; includeSubDomains
+cache-control: no-store
+access-control-allow-origin: *
+vary: Origin, Accept, Accept-Encoding
+
+{"deliveryId":"del_8f33d4c47388464193d2122fd67da9d0","orderId":"1042","deliveryAddress":"Village Rampur, India","packageDetails":"Farm produce","status":"PENDING","trackingNumber":"KM-TRK-del_8f33d4c47388464193d2122fd67da9d0","createdAt":"2026-10-13T20:40:09.873772Z","updatedAt":"2026-10-13T20:40:09.873790Z","trackingEvents":[]}
+
+===== Conditional GET: expect 304 and no body =====
+* Uses proxy env variable no_proxy == 'localhost,127.0.0.1'
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 127.0.0.1:8102...
+* Connected to 127.0.0.1 (127.0.0.1) port 8102
+* using HTTP/1.x
+> GET /deliveries/del_8f33d4c47388464193d2122fd67da9d0 HTTP/1.1
+> Host: 127.0.0.1:8102
+> User-Agent: curl/8.10.1
+> Authorization: Bearer demo-token
+> Accept: application/json
+> If-None-Match: "abfffb76094fea5bc1f0be7bb724d28b29d62749ae40900f4983a62b7f568e0b"
+> 
+* Request completely sent off
+< HTTP/1.1 304 Not Modified
+< date: Tue, 13 Oct 2026 20:40:09 GMT
+< server: uvicorn
+< etag: "abfffb76094fea5bc1f0be7bb724d28b29d62749ae40900f4983a62b7f568e0b"
+< cache-control: private, max-age=30
+< x-ratelimit-limit: 120
+< x-ratelimit-remaining: 115
+< x-content-type-options: nosniff
+< strict-transport-security: max-age=31536000; includeSubDomains
+< access-control-allow-origin: *
+< vary: Origin, Accept, Accept-Encoding
+< 
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0
+* Connection #0 to host 127.0.0.1 left intact
+HTTP/1.1 304 Not Modified
+date: Tue, 13 Oct 2026 20:40:09 GMT
+server: uvicorn
+etag: "abfffb76094fea5bc1f0be7bb724d28b29d62749ae40900f4983a62b7f568e0b"
+cache-control: private, max-age=30
+x-ratelimit-limit: 120
+x-ratelimit-remaining: 115
+x-content-type-options: nosniff
+strict-transport-security: max-age=31536000; includeSubDomains
+access-control-allow-origin: *
+vary: Origin, Accept, Accept-Encoding
+
+
+
+===== Stale conditional PUT: expect 412 =====
+* Uses proxy env variable no_proxy == 'localhost,127.0.0.1'
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 127.0.0.1:8102...
+* Connected to 127.0.0.1 (127.0.0.1) port 8102
+* using HTTP/1.x
+> PUT /deliveries/del_8f33d4c47388464193d2122fd67da9d0 HTTP/1.1
+> Host: 127.0.0.1:8102
+> User-Agent: curl/8.10.1
+> Authorization: Bearer demo-token
+> Accept: application/json
+> Content-Type: application/json
+> If-Match: "stale-etag"
+> Content-Length: 34
+> 
+} [34 bytes data]
+* upload completely sent off: 34 bytes
+< HTTP/1.1 412 Precondition Failed
+< date: Tue, 13 Oct 2026 20:40:09 GMT
+< server: uvicorn
+< etag: "abfffb76094fea5bc1f0be7bb724d28b29d62749ae40900f4983a62b7f568e0b"
+< content-length: 195
+< content-type: application/json
+< x-ratelimit-limit: 120
+< x-ratelimit-remaining: 114
+< x-content-type-options: nosniff
+< strict-transport-security: max-age=31536000; includeSubDomains
+< cache-control: no-store
+< access-control-allow-origin: *
+< vary: Origin, Accept, Accept-Encoding
+< 
+{ [195 bytes data]
+
+100   229  100   195  100    34   176k  31569 --:--:-- --:--:-- --:--:--  111k
+100   229  100   195  100    34   174k  31078 --:--:-- --:--:-- --:--:--  111k
+* Connection #0 to host 127.0.0.1 left intact
+HTTP/1.1 412 Precondition Failed
+date: Tue, 13 Oct 2026 20:40:09 GMT
+server: uvicorn
+etag: "abfffb76094fea5bc1f0be7bb724d28b29d62749ae40900f4983a62b7f568e0b"
+content-length: 195
+content-type: application/json
+x-ratelimit-limit: 120
+x-ratelimit-remaining: 114
+x-content-type-options: nosniff
+strict-transport-security: max-age=31536000; includeSubDomains
+cache-control: no-store
+access-control-allow-origin: *
+vary: Origin, Accept, Accept-Encoding
+
+{"type":"https://httpstatuses.com/412","title":"Precondition Failed","status":412,"detail":"The delivery changed since it was read; fetch the latest ETag and retry.","code":"PRECONDITION_FAILED"}
+
+===== Malformed JSON: expect 400 =====
+Note: Unnecessary use of -X or --request, POST is already inferred.
+* Uses proxy env variable no_proxy == 'localhost,127.0.0.1'
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 127.0.0.1:8102...
+* Connected to 127.0.0.1 (127.0.0.1) port 8102
+* using HTTP/1.x
+> POST /deliveries HTTP/1.1
+> Host: 127.0.0.1:8102
+> User-Agent: curl/8.10.1
+> Authorization: Bearer demo-token
+> Accept: application/json
+> Content-Type: application/json
+> Idempotency-Key: malformed
+> Content-Length: 9
+> 
+} [9 bytes data]
+* upload completely sent off: 9 bytes
+< HTTP/1.1 400 Bad Request
+< date: Tue, 13 Oct 2026 20:40:09 GMT
+< server: uvicorn
+< content-length: 144
+< content-type: application/json
+< x-ratelimit-limit: 120
+< x-ratelimit-remaining: 113
+< x-content-type-options: nosniff
+< strict-transport-security: max-age=31536000; includeSubDomains
+< cache-control: no-store
+< access-control-allow-origin: *
+< vary: Origin, Accept, Accept-Encoding
+< 
+{ [144 bytes data]
+
+100   153  100   144  100     9   135k   8695 --:--:-- --:--:-- --:--:--  149k
+* Connection #0 to host 127.0.0.1 left intact
+HTTP/1.1 400 Bad Request
+date: Tue, 13 Oct 2026 20:40:09 GMT
+server: uvicorn
+content-length: 144
+content-type: application/json
+x-ratelimit-limit: 120
+x-ratelimit-remaining: 113
+x-content-type-options: nosniff
+strict-transport-security: max-age=31536000; includeSubDomains
+cache-control: no-store
+access-control-allow-origin: *
+vary: Origin, Accept, Accept-Encoding
+
+{"type":"https://httpstatuses.com/400","title":"Bad Request","status":400,"detail":"Request body must be a JSON object.","code":"INVALID_INPUT"}
+
+===== Missing delivery: expect 404 =====
+* Uses proxy env variable no_proxy == 'localhost,127.0.0.1'
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 127.0.0.1:8102...
+* Connected to 127.0.0.1 (127.0.0.1) port 8102
+* using HTTP/1.x
+> GET /deliveries/not-a-real-id HTTP/1.1
+> Host: 127.0.0.1:8102
+> User-Agent: curl/8.10.1
+> Authorization: Bearer demo-token
+> Accept: application/json
+> 
+* Request completely sent off
+< HTTP/1.1 404 Not Found
+< date: Tue, 13 Oct 2026 20:40:09 GMT
+< server: uvicorn
+< content-length: 149
+< content-type: application/json
+< x-ratelimit-limit: 120
+< x-ratelimit-remaining: 112
+< x-content-type-options: nosniff
+< strict-transport-security: max-age=31536000; includeSubDomains
+< cache-control: no-store
+< access-control-allow-origin: *
+< vary: Origin, Accept, Accept-Encoding
+< 
+{ [149 bytes data]
+
+100   149  100   149    0     0   149k      0 --:--:-- --:--:-- --:--:--  145k
+* Connection #0 to host 127.0.0.1 left intact
+HTTP/1.1 404 Not Found
+date: Tue, 13 Oct 2026 20:40:09 GMT
+server: uvicorn
+content-length: 149
+content-type: application/json
+x-ratelimit-limit: 120
+x-ratelimit-remaining: 112
+x-content-type-options: nosniff
+strict-transport-security: max-age=31536000; includeSubDomains
+cache-control: no-store
+access-control-allow-origin: *
+vary: Origin, Accept, Accept-Encoding
+
+{"type":"https://httpstatuses.com/404","title":"Not Found","status":404,"detail":"Delivery not-a-real-id was not found.","code":"DELIVERY_NOT_FOUND"}
+
+===== Missing token: expect 401 =====
+* Uses proxy env variable no_proxy == 'localhost,127.0.0.1'
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0*   Trying 127.0.0.1:8102...
+* Connected to 127.0.0.1 (127.0.0.1) port 8102
+* using HTTP/1.x
+> GET /deliveries HTTP/1.1
+> Host: 127.0.0.1:8102
+> User-Agent: curl/8.10.1
+> Accept: */*
+> 
+* Request completely sent off
+< HTTP/1.1 401 Unauthorized
+< date: Tue, 13 Oct 2026 20:40:09 GMT
+< server: uvicorn
+< www-authenticate: Bearer
+< content-length: 149
+< content-type: application/json
+< x-content-type-options: nosniff
+< strict-transport-security: max-age=31536000; includeSubDomains
+< cache-control: no-store
+< access-control-allow-origin: *
+< vary: Origin, Accept, Accept-Encoding
+< 
+{ [149 bytes data]
+
+100   149  100   149    0     0   277k      0 --:--:-- --:--:-- --:--:--  145k
+* Connection #0 to host 127.0.0.1 left intact
+HTTP/1.1 401 Unauthorized
+date: Tue, 13 Oct 2026 20:40:09 GMT
+server: uvicorn
+www-authenticate: Bearer
+content-length: 149
+content-type: application/json
+x-content-type-options: nosniff
+strict-transport-security: max-age=31536000; includeSubDomains
+cache-control: no-store
+access-control-allow-origin: *
+vary: Origin, Accept, Accept-Encoding
+
+{"type":"https://httpstatuses.com/401","title":"Unauthorized","status":401,"detail":"A non-empty Bearer token is required.","code":"UNAUTHENTICATED"}

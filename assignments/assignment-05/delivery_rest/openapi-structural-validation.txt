@@ -1,0 +1,4 @@
+OpenAPI YAML parse: PASS
+Local structural checks: PASS (10 operations, 10 schemas, local refs resolved)
+Errors: 0
+For full specification validation, run: python -m openapi_spec_validator openapi.yaml

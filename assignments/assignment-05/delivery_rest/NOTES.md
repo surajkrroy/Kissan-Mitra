@@ -1,0 +1,157 @@
+# Assignment 05 — HTTP Methods, Headers, Caching & Safe Retries
+
+## Team details
+
+**Team ID: 19**
+
+- Vivek Kumar — Roll No. 20251651104
+- Sandeep Parmar — Roll No. 20251651082
+- Dipesh Mishra — Roll No. 20251651036
+- Suraj Kumar Saw — Roll No. 20251651092
+
+**Chosen service:** Delivery. Delivery owns delivery records and tracking events. Orders owns order workflow and is called only for eligibility.
+
+## A1 — CampusEats method map
+
+| Action | Method + URL | Success | Notes |
+|---|---|---:|---|
+| Health check | `GET /health` | 200 | Read-only, public operational endpoint |
+| Create delivery | `POST /deliveries` | 201 + `Location` | Requires `Idempotency-Key`; duplicate order conflicts with 409 |
+| List/filter/sort/page deliveries | `GET /deliveries?status=PENDING&order_id=1042&sort=createdAt&order=desc&offset=0&limit=20` | 200 | Query string only; never changes state |
+| Read one delivery | `GET /deliveries/{delivery_id}` | 200 + `ETag` | Supports `If-None-Match` and 304 |
+| Replace editable delivery fields | `PUT /deliveries/{delivery_id}` | 200 + new `ETag` | Full replacement of editable fields; requires `If-Match` |
+| Partially modify editable fields | `PATCH /deliveries/{delivery_id}` | 200 + new `ETag` | Changes only supplied fields; requires `If-Match` |
+| Delete non-terminal delivery | `DELETE /deliveries/{delivery_id}` | 204 | Terminal deliveries cannot be deleted (409) |
+| Add tracking event | `POST /deliveries/{delivery_id}/tracking-events` | 201 + `Location` | Child resource; may advance Delivery-owned status |
+| Discover collection methods | `OPTIONS /deliveries` | 204 + `Allow` | Also supports CORS preflight headers |
+
+Non-CRUD commands would be sub-resources, e.g. `POST /orders/42/cancel`, not `POST /cancelOrder`. The API does not put action verbs in URL paths.
+
+## A3 — Safe and idempotent matrix
+
+| Endpoint | Safe? | Idempotent? | Retry guidance |
+|---|---|---|---|
+| `GET /health` | Yes | Yes | Natural retry-safe read |
+| `GET /deliveries` | Yes | Yes | Natural retry-safe read; filters/sort/pagination are query parameters |
+| `GET /deliveries/{id}` | Yes | Yes | Use `If-None-Match` to save transfer when unchanged |
+| `OPTIONS /deliveries` | Yes | Yes | Natural retry-safe method discovery/preflight |
+| `POST /deliveries` | No | Effectively so with same key/body | `Idempotency-Key` replays original 201 without duplicate work; same key with different body is 409 |
+| `POST /deliveries/{id}/tracking-events` | No | No | A repeat can create a duplicate event; do not blindly retry without a future event-level idempotency key |
+| `PUT /deliveries/{id}` | No | Yes in HTTP semantics for same representation, but concurrent overwrites are risky | `If-Match` prevents stale writes; fetch latest ETag after 412 |
+| `PATCH /deliveries/{id}` | No | Not necessarily | `If-Match` prevents stale writes; repeating the same field patch may have the same effect but is not generally guaranteed idempotent |
+| `DELETE /deliveries/{id}` | No | Yes in intended final effect | First delete gives 204; a repeat returns 404 because resource is already absent |
+
+No GET endpoint mutates state. The tracking-event POST is neither safe nor idempotent: repeating it could duplicate a tracking event or duplicate a status transition. Creation of deliveries has meaningful financial/operational impact because duplicate dispatch records can lead to duplicate pickup and delivery work.
+
+## A5 — OPTIONS and method override
+
+`OPTIONS /deliveries` returns `204 No Content` and `Allow: GET, POST, OPTIONS`. CORS preflight also returns `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods`, and `Access-Control-Allow-Headers`. The documented compatibility fallback is `POST /deliveries/{id}` with `X-HTTP-Method-Override: PUT` or `DELETE`; it is for clients that cannot send those verbs directly, not the preferred API style. The normal `PUT`/`DELETE` routes remain canonical.
+
+## A6 — Full HTTP exchange
+
+### Request (HTTP/1.1)
+
+```http
+POST /deliveries HTTP/1.1
+Host: localhost:8102
+Authorization: Bearer demo-token
+Accept: application/json
+Content-Type: application/json
+Idempotency-Key: assignment5-order-1042
+
+{"orderId":"1042","deliveryAddress":"Village Rampur, India","packageDetails":"Farm produce"}
+```
+
+### Response (illustrative successful exchange; IDs and timestamps vary per run)
+
+```http
+HTTP/1.1 201 Created
+content-type: application/json
+location: /deliveries/del_example
+cache-control: no-store
+x-content-type-options: nosniff
+strict-transport-security: max-age=31536000; includeSubDomains
+x-ratelimit-limit: 120
+x-ratelimit-remaining: 119
+
+{"deliveryId":"del_example","orderId":"1042","deliveryAddress":"Village Rampur, India","packageDetails":"Farm produce","status":"PENDING","trackingNumber":"KM-TRK-del_example","createdAt":"2026-10-14T00:00:00Z","updatedAt":"2026-10-14T00:00:00Z","trackingEvents":[]}
+```
+
+This exchange is a documentation example, not a captured production response. The executable `curl-transcript.txt` is generated by the included script against a local development server.
+
+## B1–B7 — Headers behavior
+
+- Body responses use `Content-Type: application/json`. If `Accept` excludes JSON and wildcards, the service returns `406 Not Acceptable`.
+- Gzip response compression is enabled for responses at least 1000 bytes when the client sends `Accept-Encoding: gzip`.
+- Create returns `201 Created` and `Location`; read returns `200`; successful delete returns `204` with no body. Malformed input is 400, missing resource 404, state/idempotency conflict 409, domain-rule refusal 422, stale conditional write 412, and rate exhaustion 429.
+- Protected endpoints require `Authorization: Bearer <non-empty-token>`. This is header validation only; it does not authenticate or verify token signatures. `/health` and OPTIONS are public.
+- Single-item GET sets a representation-derived `ETag` and `Cache-Control: private, max-age=30`. Create/update and errors use `no-store` by default. Do not cache authenticated mutations or problem responses.
+- Rate limit is per client IP, configured by `RATE_LIMIT_PER_MINUTE` (default 120/minute). Responses include `X-RateLimit-Limit` and `X-RateLimit-Remaining`; exceeded budgets return 429 plus `Retry-After`.
+- CORS headers are emitted; preflight OPTIONS is answered without requiring Bearer credentials.
+- `X-Content-Type-Options: nosniff` and `Strict-Transport-Security` are set. Uvicorn/ASGI deployment normally supplies `Date` and `Server`; these may differ or be omitted under TestClient/proxy configuration. Production must terminate TLS and serve HTTPS; HSTS is meaningful only over HTTPS.
+
+## D2 — Endpoint × request/response headers
+
+| Endpoint | Request headers | Important response headers |
+|---|---|---|
+| `GET /health` | `Accept` optional | `Content-Type`, `X-Content-Type-Options`, `Strict-Transport-Security` |
+| `POST /deliveries` | `Authorization`, `Accept`, `Content-Type`, required `Idempotency-Key` | `Content-Type`, `Location`, rate-limit headers, security headers; replay adds `Idempotency-Replayed: true` |
+| `GET /deliveries` | `Authorization`, `Accept` | `Content-Type`, rate-limit headers, security headers |
+| `GET /deliveries/{id}` | `Authorization`, `Accept`, optional `If-None-Match` | `ETag`, `Cache-Control`; matching validator returns 304 with no body |
+| `PUT /deliveries/{id}` | `Authorization`, `Accept`, `Content-Type`, required `If-Match` | Updated `ETag`; stale ETag returns 412 and current `ETag` |
+| `PATCH /deliveries/{id}` | `Authorization`, `Accept`, `Content-Type`, required `If-Match` | Updated `ETag`; stale ETag returns 412 and current `ETag` |
+| `DELETE /deliveries/{id}` | `Authorization` | 204 with no body; common security/rate headers |
+| `POST /deliveries/{id}/tracking-events` | `Authorization`, `Accept`, `Content-Type` | `Location`, `Content-Type`, rate-limit/security headers |
+| `OPTIONS /deliveries` | `Origin`, `Access-Control-Request-Method`, `Access-Control-Request-Headers` when preflight | `Allow`, `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods`, `Access-Control-Allow-Headers`, `Access-Control-Max-Age` |
+
+## C4 — Safe-retry plan
+
+| Risky operation | Mechanism | Why |
+|---|---|---|
+| `POST /deliveries` | `Idempotency-Key` | A network timeout after creation must not cause a second delivery record or second downstream eligibility check. Same key + same body replays the original result; same key + different body returns 409. |
+| `GET /deliveries/{id}` | `If-None-Match` | Repeated reads are safe; a matching ETag returns 304 and saves response-body transfer. |
+| `PUT /deliveries/{id}` | `If-Match` | A stale editor receives 412 instead of overwriting a newer representation. Fetch the latest state and decide whether to reapply changes. |
+| `POST /deliveries/{id}/tracking-events` | No blind automatic retry | A retry can add duplicate history. If clients need retry-safe tracking creation, add a separately designed event idempotency key. |
+| `PATCH /deliveries/{id}` | `If-Match` | Prevents an older client from applying a partial change to a representation that has changed since it was read. |
+| Orders eligibility outbound GET | Timeout + exponential backoff + jitter for network/5xx only | GET is safe to retry; 4xx is a domain/client response and is not retried. |
+
+## NOTES questions
+
+### 1. Three endpoints: method, success status, most important header
+
+- `POST /deliveries` → `201 Created`; `Location` identifies the new delivery so the client can retrieve it.
+- `GET /deliveries/{id}` → `200 OK`; `ETag` identifies this exact representation and enables conditional reads/writes.
+- `DELETE /deliveries/{id}` → `204 No Content`; no representation is sent after successful deletion, keeping the response small and unambiguous.
+
+### 2. Safe and idempotent endpoints; neither and retry safety
+
+GET and OPTIONS endpoints are safe and idempotent. PUT and DELETE are not safe but are idempotent in intended effect. POST create is not safe but is made retry-safe with `Idempotency-Key`. Tracking-event POST is neither safe nor idempotent: each call adds history, so blind retry can duplicate an event. This version explicitly documents no blind retry for that endpoint.
+
+### 3. ETag, 304 request, and 412 write
+
+First read `GET /deliveries/{id}` and copy the returned ETag, for example `"abc123..."`. Send `GET /deliveries/{id}` with `If-None-Match: "abc123..."`; if unchanged, the server returns `304 Not Modified` with no body. To update, send `PUT /deliveries/{id}` (or `PATCH /deliveries/{id}`) with `If-Match: "abc123..."`. If another editor changed the record, the ETag no longer matches and the server returns `412 Precondition Failed`, preventing a lost update.
+
+### 4. Exact 422 versus 400 cases
+
+- 400 malformed input: `POST /deliveries` with `Content-Type: application/json`, `Idempotency-Key: x`, and body `{"orderId": 1042}`. `orderId` must be a non-empty string, so the input shape/type is invalid.
+- 422 domain refusal: valid body `{"orderId":"1042","deliveryAddress":"Village Rampur"}` and a configured Orders service response `{"eligible":false}`. The JSON is structurally valid, but the order has not reached a state eligible for delivery.
+
+### 5. Browser logs show 200 but page is blocked
+
+The browser enforces CORS; the server may successfully return 200 while browser JavaScript cannot read the response. `Access-Control-Allow-Origin` for the requesting origin (or a permitted wildcard for non-credentialed requests) allows the browser to expose it. Preflight must also allow the requested method and headers.
+
+### 6. Cache-Control: cacheable read and no-store
+
+A successful single-delivery GET uses `Cache-Control: private, max-age=30` because it is a short-lived read for the requesting client and ETag validation can recheck it. Create/update/error responses use `Cache-Control: no-store` because they may contain sensitive state or represent one-time outcomes that should not be stored by intermediaries.
+
+### 7. When search should use POST instead of GET
+
+GET is right for ordinary filters because it is safe, bookmarkable, cacheable, and its query parameters are visible. POST may be justified for a complex search whose criteria are too large or sensitive for a URL, or whose query is a structured JSON document. Switching to POST gives up normal GET cacheability, easy bookmarking/link sharing, and the strong convention that the operation is safe and retryable.
+
+### 8. Location on 201 and 3xx
+
+On 201 Created, `Location` points to the newly created resource. On a 3xx redirect, `Location` points to the target URI the client should request next. This API uses Location on 201; it does not currently implement a redirect route.
+
+## Submission notes
+
+Run `python -m pip install -r requirements.txt`, then `python -m pytest -v` and `python -m openapi_spec_validator openapi.yaml` (install `openapi-spec-validator` if needed). Run the local capture script to regenerate `curl-transcript.txt`. Do not include unrelated Assignment 1/backend/frontend changes in the Assignment 5 commit.
