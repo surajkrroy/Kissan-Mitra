@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<wsdl:definitions
+    xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/"
+    xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+    xmlns:tns="urn:kissanmitra:delivery:v1"
+    targetNamespace="urn:kissanmitra:delivery:v1"
+    name="ExternalDeliveryPartnerService">
+
+  <wsdl:types>
+    <xsd:schema targetNamespace="urn:kissanmitra:delivery:v1"
+                elementFormDefault="qualified">
+      <xsd:element name="CreateShipmentRequest">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="merchantReference" type="xsd:string"/>
+            <xsd:element name="orderId" type="xsd:string"/>
+            <xsd:element name="deliveryAddress" type="xsd:string"/>
+            <xsd:element name="packageDetails" type="xsd:string" minOccurs="0"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <xsd:element name="CreateShipmentResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="merchantReference" type="xsd:string"/>
+            <xsd:element name="partnerShipmentId" type="xsd:string"/>
+            <xsd:element name="trackingNumber" type="xsd:string"/>
+            <xsd:element name="status" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <xsd:element name="DeliveryPartnerFault">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="code" type="xsd:string"/>
+            <xsd:element name="message" type="xsd:string"/>
+            <xsd:element name="retryable" type="xsd:boolean"/>
+            <xsd:element name="merchantReference" type="xsd:string" minOccurs="0"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <xsd:element name="PartnerAuthHeader">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="clientId" type="xsd:string"/>
+            <xsd:element name="credential" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:schema>
+  </wsdl:types>
+
+  <wsdl:message name="CreateShipmentInput">
+    <wsdl:part name="parameters" element="tns:CreateShipmentRequest"/>
+  </wsdl:message>
+  <wsdl:message name="CreateShipmentOutput">
+    <wsdl:part name="parameters" element="tns:CreateShipmentResponse"/>
+  </wsdl:message>
+  <wsdl:message name="PartnerAuthHeaderMessage">
+    <wsdl:part name="auth" element="tns:PartnerAuthHeader"/>
+  </wsdl:message>
+  <wsdl:message name="DeliveryPartnerFaultMessage">
+    <wsdl:part name="fault" element="tns:DeliveryPartnerFault"/>
+  </wsdl:message>
+
+  <wsdl:portType name="ExternalDeliveryPartnerPortType">
+    <wsdl:operation name="createShipment">
+      <wsdl:input message="tns:CreateShipmentInput"/>
+      <wsdl:output message="tns:CreateShipmentOutput"/>
+      <wsdl:fault name="DeliveryPartnerFault" message="tns:DeliveryPartnerFaultMessage"/>
+    </wsdl:operation>
+  </wsdl:portType>
+
+  <wsdl:binding name="ExternalDeliveryPartnerSoap11Binding"
+                type="tns:ExternalDeliveryPartnerPortType">
+    <soap:binding style="document"
+                  transport="http://schemas.xmlsoap.org/soap/http"/>
+    <wsdl:operation name="createShipment">
+      <soap:operation soapAction="urn:kissanmitra:delivery:CreateShipment"
+                      style="document"/>
+      <wsdl:input>
+        <soap:header message="tns:PartnerAuthHeaderMessage" part="auth" use="literal"/>
+        <soap:body use="literal"/>
+      </wsdl:input>
+      <wsdl:output>
+        <soap:body use="literal"/>
+      </wsdl:output>
+      <wsdl:fault name="DeliveryPartnerFault">
+        <soap:fault name="DeliveryPartnerFault" use="literal"/>
+      </wsdl:fault>
+    </wsdl:operation>
+  </wsdl:binding>
+
+  <wsdl:service name="ExternalDeliveryPartnerService">
+    <wsdl:port name="ExternalDeliveryPartnerSoap11Port"
+               binding="tns:ExternalDeliveryPartnerSoap11Binding">
+      <soap:address location="https://sandbox.delivery-partner.example/soap/ShipmentService"/>
+    </wsdl:port>
+  </wsdl:service>
+</wsdl:definitions>

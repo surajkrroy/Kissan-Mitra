@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope
+    xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+    xmlns:del="urn:kissanmitra:delivery:v1">
+  <soapenv:Header>
+    <del:PartnerAuthHeader>
+      <del:clientId>KISSAN-MITRA-DELIVERY</del:clientId>
+      <del:credential>REDACTED-DEMO-CREDENTIAL</del:credential>
+    </del:PartnerAuthHeader>
+  </soapenv:Header>
+  <soapenv:Body>
+    <del:CreateShipmentRequest>
+      <del:merchantReference>KM-ORDER-1042</del:merchantReference>
+      <del:orderId>1042</del:orderId>
+      <del:deliveryAddress>Village Rampur, District Example, State Example, India</del:deliveryAddress>
+      <del:packageDetails>One farm-produce order; handling instructions to be confirmed by the Delivery service</del:packageDetails>
+    </del:CreateShipmentRequest>
+  </soapenv:Body>
+</soapenv:Envelope>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope
+    xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+    xmlns:del="urn:kissanmitra:delivery:v1">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <soapenv:Fault>
+      <faultcode>soapenv:Server</faultcode>
+      <faultstring>Delivery partner is temporarily unavailable</faultstring>
+      <detail>
+        <del:DeliveryPartnerFault>
+          <del:code>partner_unavailable</del:code>
+          <del:message>Shipment assignment could not be completed at this time.</del:message>
+          <del:retryable>true</del:retryable>
+          <del:merchantReference>KM-ORDER-1042</del:merchantReference>
+        </del:DeliveryPartnerFault>
+      </detail>
+    </soapenv:Fault>
+  </soapenv:Body>
+</soapenv:Envelope>

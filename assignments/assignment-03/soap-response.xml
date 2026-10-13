@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<soapenv:Envelope
+    xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+    xmlns:del="urn:kissanmitra:delivery:v1">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <del:CreateShipmentResponse>
+      <del:merchantReference>KM-ORDER-1042</del:merchantReference>
+      <del:partnerShipmentId>DP-SHIP-883104</del:partnerShipmentId>
+      <del:trackingNumber>DP-IN-883104</del:trackingNumber>
+      <del:status>ASSIGNED</del:status>
+    </del:CreateShipmentResponse>
+  </soapenv:Body>
+</soapenv:Envelope>
