@@ -1,0 +1,22 @@
+{
+  "name": "kissan-mitra-assignment-07-graphql",
+  "version": "1.0.0",
+  "description": "CS543 Assignment 07: Kissan-Mitra Catalogue GraphQL API with MySQL and HTML/CSS client",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "db:check": "node scripts/check-db.js",
+    "test": "node --test",
+    "setup:env": "powershell -ExecutionPolicy Bypass -File ./scripts/setup-env.ps1"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@apollo/server": "^4.12.2",
+    "dotenv": "^16.4.7",
+    "graphql": "^16.10.0",
+    "mysql2": "^3.14.0"
+  }
+}

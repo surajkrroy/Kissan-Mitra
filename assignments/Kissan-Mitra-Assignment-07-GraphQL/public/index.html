@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kissan-Mitra | Farm Catalogue</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="brand-mark" aria-hidden="true">KM</div>
+    <div>
+      <p class="eyebrow">FARMER-TO-BUYER MARKETPLACE</p>
+      <h1>Kissan-Mitra</h1>
+      <p class="subtitle">Fresh produce listed directly by farmers</p>
+    </div>
+    <span class="api-status" id="status">Connecting…</span>
+  </header>
+
+  <main class="layout">
+    <section class="section-heading">
+      <div>
+        <p class="eyebrow">CATALOGUE SERVICE · GRAPHQL</p>
+        <h2>Available farm products</h2>
+        <p class="muted">Browse produce, compare prices, and see the farmer and location.</p>
+      </div>
+      <button id="refreshBtn" class="secondary" type="button">Refresh list</button>
+    </section>
+
+    <div id="notice" class="notice" role="status" aria-live="polite"></div>
+    <section id="productList" class="product-grid" aria-live="polite">
+      <p class="muted">Loading products…</p>
+    </section>
+
+    <section class="form-panel">
+      <div>
+        <p class="eyebrow">GRAPHQL MUTATION</p>
+        <h2>List a new product</h2>
+        <p class="muted">Demo form for a farmer adding produce to Kissan-Mitra.</p>
+      </div>
+      <form id="addForm">
+        <label>Product name <input id="name" required maxlength="150" placeholder="e.g. Fresh Cauliflower"></label>
+        <label>Category
+          <select id="category" required>
+            <option value="Vegetables">Vegetables</option>
+            <option value="Fruits">Fruits</option>
+            <option value="Grains">Grains</option>
+            <option value="Oilseeds">Oilseeds</option>
+            <option value="Pulses">Pulses</option>
+          </select>
+        </label>
+        <label>Price per kg (₹) <input id="price" type="number" min="0" step="0.01" required placeholder="30"></label>
+        <label>Available quantity (kg) <input id="quantity" type="number" min="0" step="0.01" required placeholder="50"></label>
+        <label>Farmer name <input id="farmer" required maxlength="120" placeholder="Farmer's name"></label>
+        <label>Location <input id="location" required maxlength="120" placeholder="Giridih, Jharkhand"></label>
+        <button type="submit">Add product</button>
+      </form>
+      <p class="form-footnote">This educational demo has no login or payment flow. Do not enter private information.</p>
+    </section>
+  </main>
+
+  <footer>CS543 · Web Services · Assignment 07 · Kissan-Mitra GraphQL demonstration</footer>
+
+  <script>
+    const API = 'http://localhost:4000/';
+    const statusEl = document.getElementById('status');
+    const listEl = document.getElementById('productList');
+    const noticeEl = document.getElementById('notice');
+
+    async function gql(query, variables = {}) {
+      const response = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, variables })
+      });
+      const payload = await response.json();
+      if (!response.ok || payload.errors) {
+        throw new Error(payload.errors?.map(e => e.message).join('; ') || 'GraphQL request failed.');
+      }
+      return payload.data;
+    }
+
+    function escapeHtml(value) {
+      return String(value).replace(/[&<>"']/g, ch => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+    }
+
+    function renderProducts(products) {
+      if (!products.length) {
+        listEl.innerHTML = '<p class="empty">No available products found.</p>';
+        return;
+      }
+      listEl.innerHTML = products.map(p => `
+        <article class="product-card">
+          <div class="card-top"><span class="category">${escapeHtml(p.category)}</span>
+            <span class="availability">${Number(p.availableQuantity) > 0 && p.available ? 'Available' : 'Out of stock'}</span></div>
+          <h3>${escapeHtml(p.name)}</h3>
+          <p class="price">₹${Number(p.pricePerKg).toFixed(2)} <small>/ ${escapeHtml(p.unit)}</small></p>
+          <div class="detail"><span>Farmer</span><strong>${escapeHtml(p.farmerName)}</strong></div>
+          <div class="detail"><span>Location</span><strong>${escapeHtml(p.location)}</strong></div>
+          <div class="detail"><span>Quantity</span><strong>${Number(p.availableQuantity).toLocaleString()} ${escapeHtml(p.unit)}</strong></div>
+        </article>`).join('');
+    }
+
+    async function loadProducts() {
+      statusEl.textContent = 'Connecting…';
+      noticeEl.textContent = '';
+      try {
+        const data = await gql(`query { availableProducts { id name category pricePerKg unit availableQuantity location farmerName available } }`);
+        renderProducts(data.availableProducts);
+        statusEl.textContent = 'API connected';
+        statusEl.classList.add('connected');
+      } catch (error) {
+        statusEl.textContent = 'API unavailable';
+        statusEl.classList.remove('connected');
+        listEl.innerHTML = '<p class="error">Could not load products. Start MySQL and run <code>npm start</code> in the project folder, then refresh.</p>';
+        noticeEl.textContent = error.message;
+      }
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', loadProducts);
+
+    document.getElementById('addForm').addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const input = {
+        name: document.getElementById('name').value.trim(),
+        category: document.getElementById('category').value,
+        pricePerKg: Number(document.getElementById('price').value),
+        unit: 'kg',
+        availableQuantity: Number(document.getElementById('quantity').value),
+        farmerName: document.getElementById('farmer').value.trim(),
+        location: document.getElementById('location').value.trim()
+      };
+      try {
+        const data = await gql(
+          `mutation AddProduct($input: AddProductInput!) {
+            addProduct(input: $input) { id name }
+          }`, { input });
+        noticeEl.textContent = `Added “${data.addProduct.name}” (ID ${data.addProduct.id}).`;
+        event.target.reset();
+        await loadProducts();
+      } catch (error) {
+        noticeEl.textContent = `Could not add product: ${error.message}`;
+      }
+    });
+
+    loadProducts();
+  </script>
+</body>
+</html>

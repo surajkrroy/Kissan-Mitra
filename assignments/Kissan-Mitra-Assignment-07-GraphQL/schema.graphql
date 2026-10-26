@@ -1,0 +1,33 @@
+# Kissan-Mitra Catalogue GraphQL schema
+type Product {
+  id: ID!
+  name: String!
+  category: String!
+  pricePerKg: Float!
+  unit: String!
+  availableQuantity: Float!
+  location: String!
+  farmerName: String!
+  available: Boolean!
+}
+
+input AddProductInput {
+  name: String!
+  category: String!
+  pricePerKg: Float!
+  unit: String!
+  availableQuantity: Float!
+  location: String!
+  farmerName: String!
+  available: Boolean
+}
+
+type Query {
+  products: [Product!]!
+  product(id: ID!): Product
+  availableProducts: [Product!]!
+}
+
+type Mutation {
+  addProduct(input: AddProductInput!): Product!
+}
