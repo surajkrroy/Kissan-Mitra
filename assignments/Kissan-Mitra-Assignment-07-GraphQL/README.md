@@ -92,7 +92,17 @@ See [`docs/assignment-answers.md`](docs/assignment-answers.md).
 
 ## Demo and screenshots
 
-See [`docs/demo-script.md`](docs/demo-script.md). Capture your own before/after screenshots while the MySQL-backed app is running and save them in `screenshots/`. No live run or real browser screenshot is claimed to have been completed as part of this packaged source.
+## Demo and screenshots
+
+See [`docs/demo-script.md`](docs/demo-script.md) for the demonstration steps.
+
+### Before adding a product
+![Product catalogue before adding a product](screenshots/before.png)
+
+### After adding a product
+![Product catalogue after adding a product](screenshots/after.png)
+
+The screenshots were captured while testing the application locally with the MySQL database.
 
 ## Important scope note
 
