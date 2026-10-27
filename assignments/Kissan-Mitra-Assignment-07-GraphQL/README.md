@@ -1,11 +1,10 @@
 # Kissan-Mitra — CS543 Assignment 07 (GraphQL)
 
 **Team ID:** 19  
-**Service selected:** Catalogue / Farm Product Listing  
+**Service selected:** Farm Product Listing  
 **Technology:** Node.js, Apollo Server, GraphQL, MySQL, HTML, CSS, JavaScript
 
-This project adapts the Assignment 7 instructions and the GraphQL hands-on tutorial to **Kissan-Mitra**, a farmer-to-buyer marketplace. It does not implement CampusEats.
-
+This project adapts the Assignment 7 instructions and the GraphQL hands-on tutorial to **Kissan-Mitra**, a farmer-to-buyer marketplace.
 ## What is included
 
 - `schema.graphql` — GraphQL `Product` type, queries, input type, and mutation.
